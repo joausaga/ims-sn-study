@@ -5,11 +5,11 @@ library(relaimpo)
 library(knitr)
 
 #Loading external source
-source('~/Dropbox/PhD/Thesis/Studies/IdeaScale/IdeaScale_R/communities_social-networks.R')
+source('utils.R')
 
 #Loading communities dataset
-setwd("~/Dropbox/PhD/Thesis/Studies/IdeaScale")
-communities = read.csv("dumps/civic-participation_communities2.csv",header=TRUE,sep=",",stringsAsFactors=FALSE)
+setwd("")  # Set the path to this repository
+communities = read.csv("datasets/civic-participation_communities.csv",header=TRUE,sep=",",stringsAsFactors=FALSE)
 
 #
 #-------------------- CLEANING DATA SET ---------------------------------
@@ -358,56 +358,10 @@ kable(rel_impor_table,align=c('c','c','c','c','c','c'))
 calRelImporTables()
 
 #
-#-------------- COMPARISON SOCIAL VS ANTISOCIAL COMMUNITIES ------------------------
-#
-social_communities = read.csv("dumps/civic_social_communities3.csv",header=TRUE,sep=",")
-antisocial_communities = read.csv("dumps/civic_antisocial_active_communities3.csv",header=TRUE,sep=",")
-
-sub_antisocial = antisocial_communities[antisocial_communities$id%in%c(138, 147, 203, 246, 411, 454, 476),]
-
-# Mean and SD of Members
-print("Members")
-mean(social_communities$members)
-sd(social_communities$members)
-mean(sub_antisocial$members)
-sd(sub_antisocial$members)
-
-# Mean and SD of Ideas
-mean(social_communities$ideas)
-sd(social_communities$ideas)
-mean(sub_antisocial$ideas)
-sd(sub_antisocial$ideas)
-
-# Mean and SD of Votes
-mean(social_communities$votes)
-sd(social_communities$votes)
-mean(sub_antisocial$votes)
-sd(sub_antisocial$votes)
-
-# Mean and SD of Comments
-mean(social_communities$comments)
-sd(social_communities$comments)
-mean(sub_antisocial$comments)
-sd(sub_antisocial$comments)
-
-# Mean and SD of Age
-mean(social_communities$age)
-mean(sub_antisocial$age)
-
-# Mean and SD of Facebook Shares
-mean(social_communities$facebook)
-mean(sub_antisocial$facebook)
-
-# Mean and SD of Twitter Shares
-mean(social_communities$twitter)
-mean(sub_antisocial$twitter)
-
-
-#
 #-------------- QUALITATIVE ANALYSIS OF TWEETS ------------------------
 #
 
-tweets = read.csv("dumps/tweets_aggregated3.csv",header=TRUE,sep=",",stringsAsFactors=FALSE)
+tweets = read.csv("datasets/tweets.csv",header=TRUE,sep=",",stringsAsFactors=FALSE)
 
 # Preparing data
 tweets = subset(tweets,select=-c(id))
