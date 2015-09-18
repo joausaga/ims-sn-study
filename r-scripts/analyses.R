@@ -1,20 +1,24 @@
-#Loading graphic library
+#Loading depedent libraries
 library(ggplot2)
 library(reshape)
 library(relaimpo)
 library(knitr)
+library(dplyr)
+
+# Set the working directory to the dir where this script is located
+setwd('/Users/jorgesaldivar/Dropbox/PhD/Thesis/Papers/IEEE IC/ims-sn-study')
 
 #Loading external source
-source('utils.R')
+source('./r-scripts/utils.R')
 
 #Loading communities dataset
-setwd("")  # Set the path to this repository
-communities = read.csv("datasets/civic-participation_communities.csv",header=TRUE,sep=",",stringsAsFactors=FALSE)
+communities = read.csv("./datasets/civic-participation_communities.csv",header=TRUE,sep=",",stringsAsFactors=FALSE)
+communities_more_info = read.csv("./datasets/civic_communities_more_info.csv",header=TRUE,sep=",",stringsAsFactors=FALSE)
 
 #
 #-------------------- CLEANING DATA SET ---------------------------------
 #
-# Replacing NULL-ish values of some fields with NA and converting them to numeric
+# Replacing NULL-ish values of some fields with NA and then converting them to numeric
 communities$ideas_in_review[communities$ideas_in_review=="NULL"] = NA
 communities$ideas_in_review = as.numeric(communities$ideas_in_review)
 communities$ideas_in_progress[communities$ideas_in_progress=="NULL"] = NA
@@ -29,6 +33,9 @@ communities$age[communities$age=="NULL"] = NA
 communities$age = as.numeric(communities$age)
 communities$moderators[communities$moderators=="NULL"] = NA
 communities$moderators = as.numeric(communities$moderators)
+
+# Getting rid of communities that were incorrectly included
+communities = filter(communities,! id %in% c(190, 203, 306, 327))
 
 # Getting rid of communities not having enabled social sharing buttons 
 com_sn_not_na = communities[!is.na(communities$twitter),]
@@ -123,7 +130,7 @@ cat("Communities eliminated because their numbers of votes are above the outer f
 # Getting rid of comments outliers
 comm_no_sn_outliers = comm_no_sn_outliers[comm_no_sn_outliers$comments<=outer_fence_up_c,]
 
-# Checking that the final dataset has 58 rows
+# Checking that the final dataset has 53 rows
 nrow(comm_no_sn_outliers)
 
 # Printing out general statistics
@@ -141,9 +148,30 @@ cat("Active communities: ", nrow(comm_no_sn_outliers[comm_no_sn_outliers$status=
 cat("Inactive communities: ", nrow(comm_no_sn_outliers[comm_no_sn_outliers$status=="inactive",]))
 cat("Close communities: ", nrow(comm_no_sn_outliers[comm_no_sn_outliers$status=="closed",]))
 
+# Getting rid of row names
+rownames(comm_no_sn_outliers) = NULL
+
+# Getting rid of don't needed columns
+communities_more_info = select(communities_more_info, id, group)
+
+# Merging datasets
+comm_no_sn_outliers = merge(comm_no_sn_outliers,communities_more_info,by.x='id',by.y='id')
+
+# Creating the groups
+com_group_a = filter(comm_no_sn_outliers, group=='A')
+com_group_b = filter(comm_no_sn_outliers, group=='B')
+
+# Printing out group A general statistics
+cat("Total Members: ", sum(com_group_a$members))
+cat("Total Ideas: ", sum(com_group_a$ideas))
+cat("Total Ideas implemented: ", sum(com_group_a[!is.na(com_group_a$ideas_implemented),"ideas_implemented"]))
+cat("Total Ideas in progress: ", sum(com_group_a[!is.na(com_group_a$ideas_in_progress),"ideas_in_progress"]))
+cat("Total Votes: ", sum(com_group_a$votes))
+cat("Total Comments: ", sum(com_group_a$comments))
+cat("Total Shares: ", sum(com_group_a[!is.na(com_group_a$facebook),"facebook"]))
+cat("Total Tweets: ", sum(com_group_a[!is.na(com_group_a$twitter),"twitter"]))
 
 
-#
 #------------- PLOTTING RELATIONSHIP ------------------
 #
 # Facebook and Twitter Shares ~ Members
@@ -161,12 +189,12 @@ ggplot(mem_shares_melt, aes(x=value, y=members)) +
   theme(axis.text=element_text(size=12), axis.title=element_text(size=20), strip.text.x = element_text(size=20)) 
 
 # Each one separately
-ggplot(comm_no_sn_outliers, aes(facebook,members)) + geom_point(shape=1) + labs(x="Shares Count", y="Members Count") + 
+ggplot(comm_no_sn_outliers, aes(facebook, members)) + geom_point(shape=1) + labs(x="Shares Count", y="Members Count") + 
   geom_smooth(color = 'black', method="loess", linetype = "solid", size = 1) + 
   scale_x_continuous(breaks=c(0,25,50,75,100,125,150)) +
   theme(axis.text=element_text(size=20), axis.title=element_text(size=20))
 
-ggplot(comm_no_sn_outliers, aes(twitter,members)) + geom_point(shape=1) + labs(x="Tweets Count", y="Members Count") + 
+ggplot(comm_no_sn_outliers, aes(twitter, members)) + geom_point(shape=1) + labs(x="Tweets Count", y="Members Count") + 
   geom_smooth(color = 'black', method="loess", linetype = "solid", size = 1) + 
   theme(axis.text=element_text(size=20), axis.title=element_text(size=20))
 
@@ -231,7 +259,7 @@ ggplot(comm_no_sn_outliers, aes(twitter/members, comments/members)) + geom_point
 nrow(comm_no_sn_outliers[comm_no_sn_outliers$twitter/comm_no_sn_outliers$members==0,])
 
 #
-#------------- CALCULATING ABSOLUTE CORRELATIONS FOR THE 58 --------------------
+#------------- CALCULATING ABSOLUTE CORRELATIONS FOR THE 53 --------------------
 #
 cor(comm_no_sn_outliers$members,comm_no_sn_outliers$facebook)
 cor(comm_no_sn_outliers$members,comm_no_sn_outliers$twitter)
@@ -247,14 +275,63 @@ cor.test(comm_no_sn_outliers$members,comm_no_sn_outliers$votes)
 cor.test(comm_no_sn_outliers$members,comm_no_sn_outliers$comments)
 
 #
-#------------- CALCULATING RELATIVE CORRELATIONS FOR THE 58 --------------------
+#------------- CALCULATING ABSOLUTE CORRELATIONS FOR THE 53 BUT BY GROUP --------------------
 #
+cor.test(com_group_a$members,com_group_a$facebook)
+cor.test(com_group_a$members,com_group_a$twitter)
+cor.test(com_group_b$members,com_group_b$facebook)
+cor.test(com_group_b$members,com_group_b$twitter)
+
+#
+#------------- CALCULATING RELATIVE CORRELATIONS FOR THE 53 --------------------
+#
+# Ideas/Members vs. Shares-Tweets/Members
 cor.test(comm_no_sn_outliers$ideas/comm_no_sn_outliers$members,comm_no_sn_outliers$facebook/comm_no_sn_outliers$members)
 cor.test(comm_no_sn_outliers$ideas/comm_no_sn_outliers$members,comm_no_sn_outliers$twitter/comm_no_sn_outliers$members)
+# Votes/Members vs. Shares-Tweets/Members
 cor.test(comm_no_sn_outliers$votes/comm_no_sn_outliers$members,comm_no_sn_outliers$facebook/comm_no_sn_outliers$members)
 cor.test(comm_no_sn_outliers$votes/comm_no_sn_outliers$members,comm_no_sn_outliers$twitter/comm_no_sn_outliers$members)
+# Comments/Members vs. Shares-Tweets/Members
 cor.test(comm_no_sn_outliers$comments/comm_no_sn_outliers$members,comm_no_sn_outliers$facebook/comm_no_sn_outliers$members)
 cor.test(comm_no_sn_outliers$comments/comm_no_sn_outliers$members,comm_no_sn_outliers$twitter/comm_no_sn_outliers$members)
+
+#
+#------------- CALCULATING RELATIVE CORRELATIONS FOR GROUP A --------------------
+#
+# Ideas/Members vs. Shares-Tweets/Members
+cor.test(com_group_a$ideas/com_group_a$members,com_group_a$facebook/com_group_a$members)
+cor.test(com_group_a$ideas/com_group_a$members,com_group_a$twitter/com_group_a$members)
+# Votes/Members vs. Shares-Tweets/Members
+cor.test(com_group_a$votes/com_group_a$members,com_group_a$facebook/com_group_a$members)
+cor.test(com_group_a$votes/com_group_a$members,com_group_a$twitter/com_group_a$members)
+# Comments/Members vs. Shares-Tweets/Members
+cor.test(com_group_a$comments/com_group_a$members,com_group_a$facebook/com_group_a$members)
+cor.test(com_group_a$comments/com_group_a$members,com_group_a$twitter/com_group_a$members)
+
+#
+#------------- CALCULATING RELATIVE CORRELATIONS FOR GROUP B --------------------
+#
+# Ideas/Members vs. Shares-Tweets/Members
+cor.test(com_group_b$ideas/com_group_b$members,com_group_b$facebook/com_group_b$members)
+cor.test(com_group_b$ideas/com_group_b$members,com_group_b$twitter/com_group_b$members)
+# Votes/Members vs. Shares-Tweets/Members
+cor.test(com_group_b$votes/com_group_b$members,com_group_b$facebook/com_group_b$members)
+cor.test(com_group_b$votes/com_group_b$members,com_group_b$twitter/com_group_b$members)
+# Comments/Members vs. Shares-Tweets/Members
+cor.test(com_group_b$comments/com_group_b$members,com_group_b$facebook/com_group_b$members)
+cor.test(com_group_b$comments/com_group_b$members,com_group_b$twitter/com_group_b$members)
+
+# Plot the high and significant correlation
+ggplot(com_group_b, aes(facebook/members,ideas/members)) + geom_point(shape=1) + labs(x="shares/members", y="ideas/members") + 
+  geom_smooth(color = 'black', method="loess", linetype = "solid", size = 1) + 
+  theme(axis.text=element_text(size=20), axis.title=element_text(size=20))
+
+# Leaving aside the initiatives of the group that have facebook page linked to ideascale
+com_group_b_1 = filter(com_group_b, !id %in% c(221, 292, 186))
+cor.test(com_group_b_1$ideas/com_group_b_1$members,com_group_b_1$facebook/com_group_b_1$members)
+ggplot(com_group_b_1, aes(facebook/members,ideas/members)) + geom_point(shape=1) + labs(x="shares/members", y="ideas/members") + 
+  geom_smooth(color = 'black', method="loess", linetype = "solid", size = 1) + 
+  theme(axis.text=element_text(size=20), axis.title=element_text(size=20))
 
 #
 #-------------- LONGITUDINAL ANALYSIS -------------------------
@@ -296,11 +373,12 @@ round(cor.test(totals_obs$comments,totals_obs$twitter)$estimate,3)
 data_totals = getTotalsObs(FALSE)
 
 # Removing outliers (observation 1 and 2)
-data_totals = subset(data_totals, (data_totals[ ,"obs"] != 1 & data_totals[ ,"obs"] != 2))
+# data_totals = subset(data_totals, (data_totals[ ,"obs"] != 1 & data_totals[ ,"obs"] != 2))
 
 # Facebook/Members + Age ~ Members
 linear_fb_age_members = lm(members~facebook+age, data=data_totals)
 summary(linear_fb_age_members)
+summary(linear_fb_age_members)$coefficients
 rel_impor_table = calRelImporTable(data_totals$facebook,"facebook",data_totals$age,"age",data_totals$members,data_totals)
 kable(rel_impor_table,align=c('c','c','c','c','c','c'))
 
@@ -358,28 +436,133 @@ kable(rel_impor_table,align=c('c','c','c','c','c','c'))
 calRelImporTables()
 
 #
+#-------------- MULTIPLE REGRESSION ANALYSIS BUT ONLY INITIATIVES WITH SOCIAL ACTIVITY -------------------------
+#
+id_social_initiatives = c()
+for (id in unique(civic_communities_obs$communityid)) {
+  community = filter(civic_communities_obs, communityid==id)
+  has_social_activity = FALSE
+  if (length(unique(community$facebook)) > 1) {
+    cat(paste('Community ', id, ' has facebook activity\n',sep=''))
+    has_social_activity = T
+  }
+  if (length(unique(community$twitter)) > 1) {
+    cat(paste('Community ', id, ' has twitter activity\n',sep=''))
+    has_social_activity = T
+  }
+  if (!has_social_activity) {
+    cat(paste('Community ', id, ' does not have social activity\n',sep=''))
+  } else {
+    id_social_initiatives = c(id_social_initiatives, id)
+  }
+}
+
+social_communities = filter(civic_communities_obs,communityid %in% id_social_initiatives)
+
+# Getting data
+data_totals = getTotals(social_communities)
+
+# Data Preparation for plotting
+aux_total_obs = data_totals
+colnames(aux_total_obs)[2] = "Shares Count"
+colnames(aux_total_obs)[3] = "Tweets Count"
+colnames(aux_total_obs)[4] = "Members Count"
+total_obs_melted = melt(aux_total_obs, id.vars = "obs", measure.vars = c("Members Count", "Shares Count", "Tweets Count"))  # Melting the data
+# Plotting total variables for all observations
+ggplot(total_obs_melted, aes(obs, value)) + 
+  geom_line(size=1) +
+  facet_grid(variable ~ ., scales = "free_y") +
+  scale_x_continuous(breaks=c(1:14)) +
+  labs(x="Weeks", y="") +
+  theme(axis.text=element_text(size=22), axis.title=element_text(size=22), strip.text.y = element_text(size=22)) 
+
+# Facebook/Members + Age ~ Members
+linear_fb_age_members = lm(members~facebook+age, data=data_totals)
+summary(linear_fb_age_members)
+summary(linear_fb_age_members)$coefficients
+rel_impor_table = calRelImporTable(data_totals$facebook,"facebook",data_totals$age,"age",data_totals$members,data_totals)
+kable(rel_impor_table,align=c('c','c','c','c','c','c'))
+
+# Twitter/Members + Age ~ Members
+linear_tw_age_members = lm(members~twitter+age, data=data_totals)
+summary(linear_tw_age_members)
+rel_impor_table = calRelImporTable(data_totals$twitter,"twitter",data_totals$age,"age",data_totals$members,data_totals)
+kable(rel_impor_table,align=c('c','c','c','c','c','c'))
+
+
+#
+#-------------- MULTIPLE REGRESSION ANALYSIS BUT ONLY INITIATIVES OF GROUP A -------------------------
+#
+group_a_communities = filter(civic_communities_obs,communityid %in% com_group_a$id)
+# Getting data
+data_totals = getTotals(group_a_communities)
+# Facebook/Members + Age ~ Members
+linear_fb_age_members = lm(members~facebook+age, data=data_totals)
+summary(linear_fb_age_members)
+summary(linear_fb_age_members)$coefficients
+rel_impor_table = calRelImporTable(data_totals$facebook,"facebook",data_totals$age,"age",data_totals$members,data_totals)
+kable(rel_impor_table,align=c('c','c','c','c','c','c'))
+# Twitter/Members + Age ~ Members
+linear_tw_age_members = lm(members~twitter+age, data=data_totals)
+summary(linear_tw_age_members)
+rel_impor_table = calRelImporTable(data_totals$twitter,"twitter",data_totals$age,"age",data_totals$members,data_totals)
+kable(rel_impor_table,align=c('c','c','c','c','c','c'))
+
+#
+#-------------- MULTIPLE REGRESSION ANALYSIS BUT ONLY INITIATIVES OF GROUP B -------------------------
+#
+group_b_communities = filter(civic_communities_obs,communityid %in% com_group_b$id)
+# Getting data
+data_totals = getTotals(group_b_communities)
+# Facebook/Members + Age ~ Members
+linear_fb_age_members = lm(members~facebook+age, data=data_totals)
+summary(linear_fb_age_members)
+summary(linear_fb_age_members)$coefficients
+rel_impor_table = calRelImporTable(data_totals$facebook,"facebook",data_totals$age,"age",data_totals$members,data_totals)
+kable(rel_impor_table,align=c('c','c','c','c','c','c'))
+# Twitter/Members + Age ~ Members
+linear_tw_age_members = lm(members~twitter+age, data=data_totals)
+summary(linear_tw_age_members)
+rel_impor_table = calRelImporTable(data_totals$twitter,"twitter",data_totals$age,"age",data_totals$members,data_totals)
+kable(rel_impor_table,align=c('c','c','c','c','c','c'))
+
+#
 #-------------- QUALITATIVE ANALYSIS OF TWEETS ------------------------
 #
+tweets = read.csv("./datasets/tweets_2.csv",header=TRUE,sep=",",stringsAsFactors=FALSE)
 
-tweets = read.csv("datasets/tweets.csv",header=TRUE,sep=",",stringsAsFactors=FALSE)
+# Filtering out tweets of communities wrongly included
+tweets = filter(tweets, ! community_id %in% c(190, 203, 306, 327))
 
 # Preparing data
 tweets = subset(tweets,select=-c(id))
-tweets$source[tweets$source!="Twitter for Websites"] = "Other Twitter Clients"
-tweets$source[tweets$source=="Twitter for Websites"] = "Tweet Button"
+tweets$source[tweets$source!="Twitter for Websites"] = "2. Other Twitter Clients"
+tweets$source[tweets$source=="Twitter for Websites"] = "1. Tweet Button"
+
+# Drawing a box plot to compare the reactions raised by the tweet button agains 
+# the reactions raised by the other means
+ggplot(filter(tweets,total < 40), aes(x=source, y=total, fill=source)) + 
+  geom_boxplot() + 
+  scale_y_continuous(breaks=c(0,5,10,15,20,25,30)) +
+  theme(axis.text.x = element_text(size=17), 
+        axis.title.x = element_text(size=20),
+        axis.text.y = element_text(size=17), 
+        axis.title.y = element_text(size=20)) + 
+  labs(y="Reactions", x='Tweet Source') +
+  guides(fill=FALSE)
 
 # Totals
-nrow(tweets[tweets$source=="Tweet Button",])
-nrow(tweets[tweets$source!="Tweet Button",])
+nrow(tweets[tweets$source=="1. Tweet Button",])
+nrow(tweets[tweets$source!="1. Tweet Button",])
 
 # Calculating Means
-tweets = tweets[tweets$total<30,]  # Removing outliers
-mean_tw_button = round(mean(tweets[tweets$source=="Tweet Button","total"]),3)
-mean_other = round(mean(tweets[tweets$source!="Tweet Button","total"]),3)
+tweets_a = tweets[tweets$total<10,]  # Removing outliers
+mean_tw_button = round(mean(tweets_a[tweets_a$source=="1. Tweet Button","total"]),3)
+mean_other = round(mean(tweets_a[tweets_a$source!="1. Tweet Button","total"]),3)
 tweets["mean"] = ifelse(tweets$source=="Tweet Button",mean_tw_button,mean_other)
 
 # T-Test
-t.test(tweets[tweets$source!="Tweet Button","total"], tweets[tweets$source=="Tweet Button","total"])
+t.test(tweets_a[tweets_a$source!="1. Tweet Button","total"], tweets_a[tweets_a$source=="1. Tweet Button","total"])
 
 # Creating annotation dataframe
 annot_means = data.frame(x=c(3.8,1.5),y=c(20,20),source=unique(tweets$source),
@@ -398,11 +581,21 @@ tweets_by_source = ggplot(tweets, aes(x=total, group=source)) +
 # Adding annotations to the plot
 tweets_by_source + geom_text(data=annot_means, aes(x,y,label=labs,group=NULL), size=9)
 
+# Crowd vs Moderators (organizers)
+tweets_mod = filter(tweets, author_mod==1)
+tweets_crowd = filter(tweets, author_mod==0)
+cat(paste("Tweets by moderators: ",nrow(tweets_mod), " (",round(nrow(tweets_mod)/nrow(tweets)*100),"%)",sep=""))
+cat(paste("Tweets by the participants: ",nrow(tweets_crowd), " (",round(nrow(tweets_crowd)/nrow(tweets)*100),"%)",sep=""))
 
+# Reactions of crowd's tweets agains moderators' tweets
+round(mean(tweets_mod[tweets_mod$total<=10,"total"]),3)
+round(mean(tweets_crowd[tweets_crowd$total<=10,"total"]),3)
 
+# Effectiveness of tweets buttons in moderators' tweets
+round(mean(tweets_mod[tweets_mod$total<=10&tweets_mod$source=="1. Tweet Button","total"]),3)
+round(mean(tweets_mod[tweets_mod$total<=10&tweets_mod$source!="1. Tweet Button","total"]),3)
 
-
-
-
-
+# Effectiveness of tweets buttons in crowd's tweets
+round(mean(tweets_crowd[tweets_crowd$total<=10&tweets_crowd$source=="1. Tweet Button","total"]),3)
+round(mean(tweets_crowd[tweets_crowd$total<=10&tweets_crowd$source!="1. Tweet Button","total"]),3)
 

@@ -1,14 +1,11 @@
-getTotalsObs = function(share_ratios) {
-  setwd("")  # Set to the path of the repository
-  civic_communities_obs = read.csv("datasets/active_civic_communities_final.csv",header=TRUE,sep=",")
-  
-  for (obs in unique(unlist(civic_communities_obs$observation))) {
-    civic_communities = civic_communities_obs[civic_communities_obs$observation==obs,]
+getTotals = function(communities) {
+  for (obs in unique(unlist(communities$observation))) {
+    civic_communities = communities[communities$observation==obs,]
     
     #Calculate the totals for the current observation
     total_members = sum(civic_communities$members)
-    total_fb = ifelse(share_ratios,sum(civic_communities$facebook)/total_members,sum(civic_communities$facebook))
-    total_tw = ifelse(share_ratios,sum(civic_communities$twitter)/total_members,sum(civic_communities$twitter))
+    total_fb = sum(civic_communities$facebook)
+    total_tw = sum(civic_communities$twitter)
     total_ideas = sum(civic_communities$ideas)
     total_comments = sum(civic_communities$comments)
     total_votes = sum(civic_communities$votes)
@@ -30,7 +27,19 @@ getTotalsObs = function(share_ratios) {
                            ideas=as.numeric(mat_totals[,5]),comments=as.numeric(mat_totals[,6]),
                            votes=as.numeric(mat_totals[,7]), age=as.numeric(mat_totals[,8]))
   
-  return (data_totals)
+  return (data_totals)  
+}
+
+getTotalsObs = function(share_ratios) {
+  #setwd("")  # Set to the path of the repository
+  civic_communities_obs = read.csv("./datasets/active_civic_communities_final.csv",header=TRUE,sep=",")
+  
+  # Getting rid of communities that were incorrectly included
+  civic_communities_obs = filter(civic_communities_obs,! communityid %in% c(190, 203, 306, 327))
+  
+  ret = getTotals(civic_communities_obs)
+  
+  return (ret)
 }
 
 betaWeight = function(coef, x, y) {
