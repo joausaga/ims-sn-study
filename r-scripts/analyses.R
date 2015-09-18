@@ -6,7 +6,7 @@ library(knitr)
 library(dplyr)
 
 # Set the working directory to the dir where this script is located
-setwd('/Users/jorgesaldivar/Dropbox/PhD/Thesis/Papers/IEEE IC/ims-sn-study')
+setwd('')
 
 #Loading external source
 source('./r-scripts/utils.R')
